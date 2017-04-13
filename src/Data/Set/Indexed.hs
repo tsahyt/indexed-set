@@ -1,11 +1,15 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE GADTs #-}
 module Data.Set.Indexed
 (
@@ -28,7 +32,7 @@ module Data.Set.Indexed
     -- * Combine
     union,
     difference,
-    (//),
+    (\\),
     intersection,
     
     -- * Filter
@@ -78,12 +82,15 @@ import Control.DeepSeq
 import Data.Coerce
 import Data.Proxy
 import Data.Data
+import Data.Constraint hiding ((\\))
 import Data.Constraint.Nat
 import Data.Typeable
 import GHC.TypeLits
 import qualified Data.Set as S
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as N
+
+import Unsafe.Coerce
 
 import Prelude hiding (null, map, foldr, foldl)
 
@@ -93,7 +100,7 @@ newtype Set (n :: Nat) a = ISet (S.Set a)
 null :: Set n a -> Bool
 null = S.null . coerce
 
-size :: forall n. Set n a -> Int
+size :: forall a n. KnownNat n => Set n a -> Int
 size _ = fromIntegral $ natVal (Proxy :: Proxy n)
 
 size' :: forall n a. Set n a -> Proxy n
@@ -142,19 +149,47 @@ delete x old@(ISet s)
 data Bounds (l :: Nat) (h :: Nat) (x :: Nat -> * -> *) a where
     Bounds :: (l <= n, n <= h, KnownNat n) => x n a -> Bounds l h x a
 
-union :: Ord a => Set n a -> Set m a -> Bounds (Max n m) (n + m) Set a
-union = undefined
+-- Deeply evil
+axiom :: forall a b. Dict (a ~ b)
+axiom = unsafeCoerce (Dict :: Dict (a ~ a))
 
-difference :: (Ord a, m <= n) => Set n a -> Set m a -> Bounds (n - m) n Set a
-difference = undefined
+axiomLe :: forall a b. Dict (a <= b)
+axiomLe = axiom
+
+union :: forall n m a. Ord a 
+    => Set n a -> Set m a -> Bounds (Max n m) (n + m) Set a
+union a b = case someNatVal (fromIntegral (S.size r)) of
+    Just (SomeNat (Proxy :: Proxy k)) ->
+        let r' = ISet r :: Set k a
+            l  = axiomLe @(Max n m) @k
+            h  = axiomLe @k @(n + m)
+         in withDict l (withDict h (Bounds r'))
+    where r = S.union (coerce a) (coerce b)
+
+difference :: forall n m a. (Ord a, m <= n) 
+    => Set n a -> Set m a -> Bounds (n - m) n Set a
+difference a b = case someNatVal (fromIntegral (S.size r)) of
+    Just (SomeNat (Proxy :: Proxy k)) ->
+        let r' = ISet r :: Set k a
+            l  = axiomLe @(n - m) @k
+            h  = axiomLe @k @n
+         in withDict l (withDict h (Bounds r'))
+    where r = S.difference (coerce a) (coerce b)
 
 infixl 9 \\
 
 (\\) :: (Ord a, m <= n) => Set n a -> Set m a -> Bounds (n - m) n Set a
 a \\ b = difference a b
 
-intersection :: Ord a => Set n a -> Set m a -> Bounds 0 (Min n m) Set a
-intersection = undefined
+intersection :: forall n m a. Ord a 
+    => Set n a -> Set m a -> Bounds 0 (Min n m) Set a
+intersection a b = case someNatVal (fromIntegral (S.size r)) of
+    Just (SomeNat (Proxy :: Proxy k)) ->
+        let r' = ISet r :: Set k a
+            l  = axiomLe @0 @k
+            h  = axiomLe @k @(Min n m)
+         in withDict l (withDict h (Bounds r'))
+    where r = S.intersection (coerce a) (coerce b)
 
 unsafeMapMonotonic :: (a -> b) -> Set n a -> Set n b
 unsafeMapMonotonic f (ISet x) = ISet (S.mapMonotonic f x)
@@ -238,3 +273,5 @@ fromSet s
 withSet :: forall a r. S.Set a -> (forall n. KnownNat n => Set n a -> r) -> r
 withSet s f = case someNatVal (fromIntegral $ S.size s) of
     Just (SomeNat (Proxy :: Proxy n)) -> let s' = ISet s :: Set n a in f s'
+
+class Hole a where { __ :: a }
