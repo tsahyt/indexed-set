@@ -117,7 +117,10 @@ import Prelude hiding (null, map, foldr, foldl, filter)
 
 -- | A set of values @a@, indexed by cardinality.
 newtype Set (n :: Nat) a = ISet (S.Set a)
-    deriving (Show, Eq, Ord, Foldable, Data, Typeable, NFData)
+    deriving (Eq, Ord, Foldable, Data, Typeable, NFData)
+
+instance Show a => Show (Set n a) where
+    show (ISet s) = show s
 
 -- | /O(1)/. Is this the empty set?
 null :: Set n a -> Bool
