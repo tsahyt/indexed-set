@@ -82,13 +82,13 @@ import Control.DeepSeq
 import Data.Coerce
 import Data.Proxy
 import Data.Data
-import Data.Constraint hiding ((\\))
 import Data.Constraint.Nat
 import Data.Typeable
 import GHC.TypeLits
 import qualified Data.Set as S
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as N
+import qualified Data.Constraint as C
 
 import Unsafe.Coerce
 
@@ -149,11 +149,14 @@ delete x old@(ISet s)
 data Bounds (l :: Nat) (h :: Nat) (x :: Nat -> * -> *) a where
     Bounds :: (l <= n, n <= h, KnownNat n) => x n a -> Bounds l h x a
 
--- Deeply evil
-axiom :: forall a b. Dict (a ~ b)
-axiom = unsafeCoerce (Dict :: Dict (a ~ a))
+collapseBounds :: forall n f a. KnownNat n => Bounds n n f a -> f n a
+collapseBounds (Bounds (x :: f k a)) = x C.\\ leEq @n @k
 
-axiomLe :: forall a b. Dict (a <= b)
+-- Deeply evil
+axiom :: forall a b. C.Dict (a ~ b)
+axiom = unsafeCoerce (C.Dict :: C.Dict (a ~ a))
+
+axiomLe :: forall a b. C.Dict (a <= b)
 axiomLe = axiom
 
 union :: forall n m a. Ord a 
@@ -163,7 +166,7 @@ union a b = case someNatVal (fromIntegral (S.size r)) of
         let r' = ISet r :: Set k a
             l  = axiomLe @(Max n m) @k
             h  = axiomLe @k @(n + m)
-         in withDict l (withDict h (Bounds r'))
+         in C.withDict l (C.withDict h (Bounds r'))
     where r = S.union (coerce a) (coerce b)
 
 difference :: forall n m a. (Ord a, m <= n) 
@@ -173,7 +176,7 @@ difference a b = case someNatVal (fromIntegral (S.size r)) of
         let r' = ISet r :: Set k a
             l  = axiomLe @(n - m) @k
             h  = axiomLe @k @n
-         in withDict l (withDict h (Bounds r'))
+         in C.withDict l (C.withDict h (Bounds r'))
     where r = S.difference (coerce a) (coerce b)
 
 infixl 9 \\
@@ -188,7 +191,7 @@ intersection a b = case someNatVal (fromIntegral (S.size r)) of
         let r' = ISet r :: Set k a
             l  = axiomLe @0 @k
             h  = axiomLe @k @(Min n m)
-         in withDict l (withDict h (Bounds r'))
+         in C.withDict l (C.withDict h (Bounds r'))
     where r = S.intersection (coerce a) (coerce b)
 
 unsafeMapMonotonic :: (a -> b) -> Set n a -> Set n b
@@ -273,5 +276,3 @@ fromSet s
 withSet :: forall a r. S.Set a -> (forall n. KnownNat n => Set n a -> r) -> r
 withSet s f = case someNatVal (fromIntegral $ S.size s) of
     Just (SomeNat (Proxy :: Proxy n)) -> let s' = ISet s :: Set n a in f s'
-
-class Hole a where { __ :: a }
