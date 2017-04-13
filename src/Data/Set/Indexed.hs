@@ -23,6 +23,7 @@ module Data.Set.Indexed
     notMember,
     isSubsetOf,
     isProperSubsetOf,
+    isProperSubsetOf',
 
     -- * Construction
     empty,
@@ -40,9 +41,13 @@ module Data.Set.Indexed
     partition,
     split,
 
+    -- * Indexed
+    lookupIndex,
+    elemAt,
+    deleteAt,
+
     -- * Map
-    -- TODO: map
-    unsafeMapMonotonic,
+    map,
 
     -- * Folds
     foldr,
@@ -85,6 +90,7 @@ where
 
 import Control.DeepSeq
 import Data.Coerce
+import Data.Finite
 import Data.Proxy
 import Data.Data
 import Data.Constraint.Nat
@@ -134,6 +140,9 @@ isSubsetOf a b = S.isSubsetOf (coerce a) (coerce b)
 
 isProperSubsetOf :: Ord a => Set n a -> Set (n + m + 1) a -> Bool
 isProperSubsetOf a b = S.isProperSubsetOf (coerce a) (coerce b)
+
+isProperSubsetOf' :: Ord a => Set n a -> Set (n + m) a -> Bool
+isProperSubsetOf' a b = S.isProperSubsetOf (coerce a) (coerce b)
 
 empty :: Set 0 a
 empty = ISet S.empty
@@ -208,8 +217,22 @@ splitMember x s = case S.splitMember x (coerce s) of
      (_,False,_) -> Nothing
      (l,_,r) -> Just (unsafeMkBounds l, unsafeMkBounds r)
 
-unsafeMapMonotonic :: (a -> b) -> Set n a -> Set n b
-unsafeMapMonotonic f (ISet x) = ISet (S.mapMonotonic f x)
+lookupIndex :: (KnownNat n, Ord a) => a -> Set n a -> Maybe (Finite n)
+lookupIndex x s = do
+    i <- S.lookupIndex x (coerce s)
+    packFinite (fromIntegral i)
+
+elemAt :: Finite n -> Set n a -> a
+elemAt i s = let i' = fromIntegral (getFinite i) in S.elemAt i' (coerce s)
+
+deleteAt :: Ord a => Finite (n + 1) -> Set (n + 1) a -> Set n a
+deleteAt i s = 
+    let i' = fromIntegral (getFinite i)
+        s' = S.deleteAt i' (coerce s)
+     in ISet s'
+
+map :: Ord b => (a -> b) -> Set n a -> Bounds 0 n Set b
+map f s = unsafeMkBounds (S.map f (coerce s))
 
 foldr :: (a -> b -> b) -> b -> Set n a -> b
 foldr f z s = S.foldr f z (coerce s)
