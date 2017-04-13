@@ -6,19 +6,19 @@
 -- to resort to existential quantification (e.g. 'union') because the exact
 -- cardinality cannot be deduced purely from the input cardinalities. In those
 -- cases, the 'Bounds' type is used to at least provide lower and upper bounds.
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 module Data.Set.Indexed
 (
     Set,
@@ -100,12 +100,13 @@ where
 
 import Control.DeepSeq
 import Data.Coerce
+import Data.Constraint.Nat
+import Data.Data
 import Data.Finite
 import Data.Proxy
-import Data.Data
-import Data.Constraint.Nat
 import Data.Typeable
 import GHC.TypeLits
+
 import qualified Data.Set as S
 import qualified Data.Foldable as F
 import qualified Data.List.NonEmpty as N
