@@ -25,6 +25,7 @@ module Data.Set.Indexed
     
     -- * Query
     null,
+    witnessNull,
     size,
     size',
     member,
@@ -123,8 +124,9 @@ null :: Set n a -> Bool
 null = S.null . coerce
 {-# INLINE null #-}
 
-witnessNull :: Set n a -> Maybe (n :~: 0)
-witnessNull x = undefined -- _witnessNull_body
+-- | /O(1)/. Provide type level proof that a given set is empty.
+witnessNull :: KnownNat n => Set n a -> Maybe (n :~: 0)
+witnessNull x = sameNat (size' x) (Proxy @0)
 
 -- | /O(1)/. The number of elements in the set.
 size :: forall a n. KnownNat n => Set n a -> Int
