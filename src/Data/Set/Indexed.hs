@@ -26,7 +26,10 @@ module Data.Set.Indexed
     insert,
 
     -- * Combine
-    -- TODO
+    union,
+    difference,
+    (//),
+    intersection,
     
     -- * Filter
     -- TODO
@@ -75,6 +78,7 @@ import Control.DeepSeq
 import Data.Coerce
 import Data.Proxy
 import Data.Data
+import Data.Constraint.Nat
 import Data.Typeable
 import GHC.TypeLits
 import qualified Data.Set as S
@@ -89,8 +93,8 @@ newtype Set (n :: Nat) a = ISet (S.Set a)
 null :: Set n a -> Bool
 null = S.null . coerce
 
-size :: Set n a -> Int
-size = S.size . coerce
+size :: forall n. Set n a -> Int
+size _ = fromIntegral $ natVal (Proxy :: Proxy n)
 
 size' :: forall n a. Set n a -> Proxy n
 size' _ = Proxy
@@ -134,6 +138,23 @@ delete :: Ord a => a -> Set (n + 1) a -> Either (Set (n + 1) a) (Set n a)
 delete x old@(ISet s)
     | S.member x s = Right $ ISet (S.delete x s)
     | otherwise    = Left old
+
+data Bounds (l :: Nat) (h :: Nat) (x :: Nat -> * -> *) a where
+    Bounds :: (l <= n, n <= h, KnownNat n) => x n a -> Bounds l h x a
+
+union :: Ord a => Set n a -> Set m a -> Bounds (Max n m) (n + m) Set a
+union = undefined
+
+difference :: (Ord a, m <= n) => Set n a -> Set m a -> Bounds (n - m) n Set a
+difference = undefined
+
+infixl 9 \\
+
+(\\) :: (Ord a, m <= n) => Set n a -> Set m a -> Bounds (n - m) n Set a
+a \\ b = difference a b
+
+intersection :: Ord a => Set n a -> Set m a -> Bounds 0 (Min n m) Set a
+intersection = undefined
 
 unsafeMapMonotonic :: (a -> b) -> Set n a -> Set n b
 unsafeMapMonotonic f (ISet x) = ISet (S.mapMonotonic f x)
