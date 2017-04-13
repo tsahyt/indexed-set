@@ -36,7 +36,9 @@ module Data.Set.Indexed
     intersection,
     
     -- * Filter
-    -- TODO
+    filter,
+    partition,
+    split,
 
     -- * Map
     -- TODO: map
@@ -74,7 +76,10 @@ module Data.Set.Indexed
 
     -- ** Unindexed Sets
     fromSet,
-    withSet
+    withSet,
+
+    -- * Bounds
+    Bounds (..)
 )
 where
 
@@ -92,7 +97,7 @@ import qualified Data.Constraint as C
 
 import Unsafe.Coerce
 
-import Prelude hiding (null, map, foldr, foldl)
+import Prelude hiding (null, map, foldr, foldl, filter)
 
 newtype Set (n :: Nat) a = ISet (S.Set a)
     deriving (Show, Eq, Ord, Foldable, Data, Typeable, NFData)
@@ -152,6 +157,14 @@ data Bounds (l :: Nat) (h :: Nat) (x :: Nat -> * -> *) a where
 collapseBounds :: forall n f a. KnownNat n => Bounds n n f a -> f n a
 collapseBounds (Bounds (x :: f k a)) = x C.\\ leEq @n @k
 
+unsafeMkBounds :: forall a l h. S.Set a -> Bounds l h Set a
+unsafeMkBounds r = case someNatVal (fromIntegral (S.size r)) of
+    Just (SomeNat (Proxy :: Proxy k)) ->
+        let r' = ISet r :: Set k a
+            l  = axiomLe @l @k
+            h  = axiomLe @k @h
+         in C.withDict l (C.withDict h (Bounds r'))
+
 -- Deeply evil
 axiom :: forall a b. C.Dict (a ~ b)
 axiom = unsafeCoerce (C.Dict :: C.Dict (a ~ a))
@@ -161,23 +174,11 @@ axiomLe = axiom
 
 union :: forall n m a. Ord a 
     => Set n a -> Set m a -> Bounds (Max n m) (n + m) Set a
-union a b = case someNatVal (fromIntegral (S.size r)) of
-    Just (SomeNat (Proxy :: Proxy k)) ->
-        let r' = ISet r :: Set k a
-            l  = axiomLe @(Max n m) @k
-            h  = axiomLe @k @(n + m)
-         in C.withDict l (C.withDict h (Bounds r'))
-    where r = S.union (coerce a) (coerce b)
+union a b = unsafeMkBounds (S.union (coerce a) (coerce b))
 
 difference :: forall n m a. (Ord a, m <= n) 
     => Set n a -> Set m a -> Bounds (n - m) n Set a
-difference a b = case someNatVal (fromIntegral (S.size r)) of
-    Just (SomeNat (Proxy :: Proxy k)) ->
-        let r' = ISet r :: Set k a
-            l  = axiomLe @(n - m) @k
-            h  = axiomLe @k @n
-         in C.withDict l (C.withDict h (Bounds r'))
-    where r = S.difference (coerce a) (coerce b)
+difference a b = unsafeMkBounds (S.difference (coerce a) (coerce b))
 
 infixl 9 \\
 
@@ -186,13 +187,26 @@ a \\ b = difference a b
 
 intersection :: forall n m a. Ord a 
     => Set n a -> Set m a -> Bounds 0 (Min n m) Set a
-intersection a b = case someNatVal (fromIntegral (S.size r)) of
-    Just (SomeNat (Proxy :: Proxy k)) ->
-        let r' = ISet r :: Set k a
-            l  = axiomLe @0 @k
-            h  = axiomLe @k @(Min n m)
-         in C.withDict l (C.withDict h (Bounds r'))
-    where r = S.intersection (coerce a) (coerce b)
+intersection a b = unsafeMkBounds (S.intersection (coerce a) (coerce b))
+
+filter :: (a -> Bool) -> Set n a -> Bounds 0 n Set a
+filter p s = unsafeMkBounds (S.filter p (coerce s))
+
+partition :: (a -> Bool) -> Set n a -> (Bounds 0 n Set a, Bounds 0 n Set a)
+partition p s = 
+    let (l,r) = S.partition p (coerce s)
+     in (unsafeMkBounds l, unsafeMkBounds r)
+
+split :: Ord a => a -> Set n a -> (Bounds 0 n Set a, Bounds 0 n Set a)
+split x s =
+    let (l,r) = S.split x (coerce s)
+     in (unsafeMkBounds l, unsafeMkBounds r)
+
+splitMember :: Ord a 
+    => a -> Set n a -> Maybe (Bounds 0 n Set a, Bounds 0 n Set a)
+splitMember x s = case S.splitMember x (coerce s) of
+     (_,False,_) -> Nothing
+     (l,_,r) -> Just (unsafeMkBounds l, unsafeMkBounds r)
 
 unsafeMapMonotonic :: (a -> b) -> Set n a -> Set n b
 unsafeMapMonotonic f (ISet x) = ISet (S.mapMonotonic f x)
