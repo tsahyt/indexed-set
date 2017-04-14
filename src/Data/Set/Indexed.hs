@@ -36,6 +36,7 @@ module Data.Set.Indexed
     -- * Cardinality
     witnessNull,
     exactCardinality,
+    exactBounds,
 
     -- * Construction
     empty,
@@ -130,6 +131,7 @@ instance Show a => Show (Set n a) where
 -- | /O(1)/. Provide type level proof that a given set is empty.
 witnessNull :: Set n a -> Maybe (Set 0 a)
 witnessNull x = exactCardinality Proxy x
+{-# INLINE witnessNull #-}
 
 -- | /O(1)/. Safely try to cast a set of some cardinality to a set of some exact
 -- given cardinality. If the given set does not match the given cardinality,
@@ -140,6 +142,15 @@ exactCardinality n (ISet s) = do
     SomeNat (Proxy :: Proxy k) <- someNatVal (fromIntegral (S.size s))
     Refl <- sameNat n (Proxy @k)
     return (ISet s)
+{-# INLINABLE exactCardinality #-}
+
+-- | /O(1)/. Extract a 'Set' from 'Bounds' by guessing its cardinality.
+--
+-- > exactBounds n (Bounds s) = exactCardinality n s
+--
+exactBounds :: KnownNat n => Proxy n -> Bounds Set l h a -> Maybe (Set n a)
+exactBounds n (Bounds s) = exactCardinality n s
+{-# INLINE exactBounds #-}
 
 -- | /O(1)/. Is this the empty set?
 null :: Set n a -> Bool
