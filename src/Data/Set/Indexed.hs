@@ -147,8 +147,8 @@ null = S.null . coerce
 {-# INLINE null #-}
 
 -- | /O(1)/. The number of elements in the set.
-size :: forall a n. KnownNat n => Set n a -> Int
-size _ = fromIntegral $ natVal (Proxy :: Proxy n)
+size :: forall a n. Set n a -> Int
+size s = S.size (coerce s)
 {-# INLINE size #-}
 
 -- | /O(1)/. The number of elements in the set, returned as a 'Proxy'
