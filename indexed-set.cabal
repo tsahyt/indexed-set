@@ -16,7 +16,8 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Data.Set.Indexed
-  build-depends:       base >= 4.7 && < 5, containers, deepseq, constraints,
+                       Data.Bounds
+  build-depends:       base >= 4.9 && < 5, containers, deepseq, constraints,
                        finite-typelits
   default-language:    Haskell2010
 

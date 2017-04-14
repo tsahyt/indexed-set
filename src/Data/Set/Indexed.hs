@@ -99,6 +99,7 @@ module Data.Set.Indexed
 where
 
 import Control.DeepSeq
+import Data.Bounds
 import Data.Coerce
 import Data.Constraint.Nat
 import Data.Data
@@ -236,26 +237,7 @@ delete x old@(ISet s)
     | otherwise    = Left old
 {-# INLINABLE delete #-}
 
--- | An existential wrapper around 'Nat' indexed structures of kind @Nat -> * ->
--- *@, such as 'Set', which also provides lower and upper bounds for the
--- existentially quantified index.
---
--- @Bounds l h x a@ therefore provides proof that @l@ is a lower bound on the
--- index of @x@, and @h@ is an upper bound on it.
---
--- Pattern matching on the @Bounds@ constructor brings a 'KnownNat' @n@
--- constraint into scope, as well as @l <= n@ and @n <= h@.
-data Bounds (l :: Nat) (h :: Nat) (x :: Nat -> * -> *) a where
-    Bounds :: (l <= n, n <= h, KnownNat n) => x n a -> Bounds l h x a
-
--- | Given a 'Bounds' with two equal bounds, collapse it to the contained
--- strucutre. In other words, given that @l <= k <= h@, we get a proof that @l =
--- k = h@ and therefore, the existentially quantified index can be extracted.
-collapseBounds :: forall n f a. KnownNat n => Bounds n n f a -> f n a
-collapseBounds (Bounds (x :: f k a)) = x C.\\ leEq @n @k
-{-# INLINABLE collapseBounds #-}
-
-unsafeMkBounds :: forall a l h. S.Set a -> Bounds l h Set a
+unsafeMkBounds :: forall a l h. S.Set a -> Bounds Set l h a
 unsafeMkBounds r = case someNatVal (fromIntegral (S.size r)) of
     Just (SomeNat (Proxy :: Proxy k)) ->
         let r' = ISet r :: Set k a
@@ -274,39 +256,39 @@ axiomLe = axiom
 -- | /O(m*log(n\/m + 1)), m <= n/. The union of two sets, preferring the first
 -- set when equal elements are encountered.
 union :: forall n m a. Ord a 
-    => Set n a -> Set m a -> Bounds (Max n m) (n + m) Set a
+    => Set n a -> Set m a -> Bounds Set (Max n m) (n + m) a
 union a b = unsafeMkBounds (S.union (coerce a) (coerce b))
 {-# INLINE union #-}
 
 -- | /O(m*log(n\/m + 1)), m <= n/. Difference of two sets.
 difference :: forall n m a. (Ord a, m <= n) 
-    => Set n a -> Set m a -> Bounds (n - m) n Set a
+    => Set n a -> Set m a -> Bounds Set (n - m) n a
 difference a b = unsafeMkBounds (S.difference (coerce a) (coerce b))
 {-# INLINE difference #-}
 
 infixl 9 \\
 
 -- | /O(m*log(n\/m+1)), m <= n/. See 'difference'.
-(\\) :: (Ord a, m <= n) => Set n a -> Set m a -> Bounds (n - m) n Set a
+(\\) :: (Ord a, m <= n) => Set n a -> Set m a -> Bounds Set (n - m) n a
 a \\ b = difference a b
 {-# INLINE (\\) #-}
 
 -- | /O(m*log(n\/m + 1)), m <= n/. The intersection of two sets.  Elements of
 -- the result come from the first set.
 intersection :: forall n m a. Ord a 
-    => Set n a -> Set m a -> Bounds 0 (Min n m) Set a
+    => Set n a -> Set m a -> Bounds Set 0 (Min n m) a
 intersection a b = unsafeMkBounds (S.intersection (coerce a) (coerce b))
 {-# INLINE intersection #-}
 
 -- | /O(n)/. Filter all elements that satisfy the predicate.
-filter :: (a -> Bool) -> Set n a -> Bounds 0 n Set a
+filter :: (a -> Bool) -> Set n a -> Bounds Set 0 n a
 filter p s = unsafeMkBounds (S.filter p (coerce s))
 {-# INLINE filter #-}
 
 -- | /O(n)/. Partition the set into two sets, one with all elements that satisfy
 -- the predicate and one with all elements that don't satisfy the predicate.
 -- See also 'split'.
-partition :: (a -> Bool) -> Set n a -> (Bounds 0 n Set a, Bounds 0 n Set a)
+partition :: (a -> Bool) -> Set n a -> (Bounds Set 0 n a, Bounds Set 0 n a)
 partition p s = 
     let (l,r) = S.partition p (coerce s)
      in (unsafeMkBounds l, unsafeMkBounds r)
@@ -315,7 +297,7 @@ partition p s =
 -- | /O(log n)/. The expression (@'split' x set@) is a pair @(set1,set2)@
 -- where @set1@ comprises the elements of @set@ less than @x@ and @set2@
 -- comprises the elements of @set@ greater than @x@.
-split :: Ord a => a -> Set n a -> (Bounds 0 n Set a, Bounds 0 n Set a)
+split :: Ord a => a -> Set n a -> (Bounds Set 0 n a, Bounds Set 0 n a)
 split x s =
     let (l,r) = S.split x (coerce s)
      in (unsafeMkBounds l, unsafeMkBounds r)
@@ -324,7 +306,7 @@ split x s =
 -- | /O(log n)/. Performs a 'split' but also returns whether the pivot
 -- element was found in the original set in the form of a 'Maybe'.
 splitMember :: Ord a 
-    => a -> Set n a -> Maybe (Bounds 0 n Set a, Bounds 0 n Set a)
+    => a -> Set n a -> Maybe (Bounds Set 0 n a, Bounds Set 0 n a)
 splitMember x s = case S.splitMember x (coerce s) of
      (_,False,_) -> Nothing
      (l,_,r) -> Just (unsafeMkBounds l, unsafeMkBounds r)
@@ -358,7 +340,7 @@ deleteAt i s =
 
 -- | /O(n*log n)/.  @'map' f s@ is the set obtained by applying @f@ to each
 -- element of @s@. The result may be smaller than the original.
-map :: Ord b => (a -> b) -> Set n a -> Bounds 0 n Set b
+map :: Ord b => (a -> b) -> Set n a -> Bounds Set 0 n b
 map f s = unsafeMkBounds (S.map f (coerce s))
 {-# INLINE map #-}
 
