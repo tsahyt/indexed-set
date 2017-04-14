@@ -252,6 +252,11 @@ insert x (ISet s)
     | otherwise    = Right $ ISet (S.insert x s)
 {-# INLINABLE insert #-}
 
+-- | Like 'insert', but will return 'Nothing' when the element is already in the
+-- set.
+insert' :: Ord a => a -> Set n a -> Maybe (Set (n + 1) a )
+insert' x s = either (const Nothing) Just (insert x s)
+
 -- | /O(log n)/. Delete an element from a set. If the element is not in the set,
 -- the old set is returned in 'Left'. 'Right' contains the set with the element
 -- removed.
@@ -260,6 +265,11 @@ delete x old@(ISet s)
     | S.member x s = Right $ ISet (S.delete x s)
     | otherwise    = Left old
 {-# INLINABLE delete #-}
+
+-- | Like 'delete', but will return 'Nothing' when the element was not in the
+-- set.
+delete' :: Ord a => a -> Set (n + 1) a -> Maybe (Set n a)
+delete' x s = either (const Nothing) Just (delete x s)
 
 unsafeMkBounds :: forall a l h. S.Set a -> Bounds Set l h a
 unsafeMkBounds r = case someNatVal (fromIntegral (S.size r)) of
