@@ -25,7 +25,6 @@ module Data.Set.Indexed
     
     -- * Query
     null,
-    witnessNull,
     size,
     size',
     member,
@@ -33,6 +32,10 @@ module Data.Set.Indexed
     isSubsetOf,
     isProperSubsetOf,
     isProperSubsetOf',
+
+    -- * Cardinality
+    witnessNull,
+    exactCardinality,
 
     -- * Construction
     empty,
@@ -124,14 +127,24 @@ newtype Set (n :: Nat) a = ISet (S.Set a)
 instance Show a => Show (Set n a) where
     show (ISet s) = show s
 
+-- | /O(1)/. Provide type level proof that a given set is empty.
+witnessNull :: Set n a -> Maybe (Set 0 a)
+witnessNull x = exactCardinality Proxy x
+
+-- | /O(1)/. Safely try to cast a set of some cardinality to a set of some exact
+-- given cardinality. If the given set does not match the given cardinality,
+-- 'Nothing' is returned.
+exactCardinality :: forall n m a. KnownNat n 
+    => Proxy n -> Set m a -> Maybe (Set n a)
+exactCardinality n (ISet s) = do
+    SomeNat (Proxy :: Proxy k) <- someNatVal (fromIntegral (S.size s))
+    Refl <- sameNat n (Proxy @k)
+    return (ISet s)
+
 -- | /O(1)/. Is this the empty set?
 null :: Set n a -> Bool
 null = S.null . coerce
 {-# INLINE null #-}
-
--- | /O(1)/. Provide type level proof that a given set is empty.
-witnessNull :: KnownNat n => Set n a -> Maybe (n :~: 0)
-witnessNull x = sameNat (size' x) (Proxy @0)
 
 -- | /O(1)/. The number of elements in the set.
 size :: forall a n. KnownNat n => Set n a -> Int
