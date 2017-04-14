@@ -42,6 +42,9 @@ module Data.Set.Indexed
     empty,
     singleton,
     insert,
+    insert',
+    delete,
+    delete',
 
     -- * Combine
     union,
