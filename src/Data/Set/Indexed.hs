@@ -475,9 +475,10 @@ toListNE = N.fromList . toList
 -- with the performance equal to 'fromDistinctAscList'.
 fromList :: forall n a. (KnownNat n, Ord a) => [a] -> Maybe (Set n a)
 fromList xs
-    | length xs == n = Just $ ISet (S.fromList xs)
+    | S.size s == n = Just $ ISet s
     | otherwise = Nothing
     where n = fromIntegral $ natVal (Proxy :: Proxy n)
+          s = S.fromList xs
 {-# INLINABLE fromList #-}
 
 -- | Perform a function on 'Set' on a list.
